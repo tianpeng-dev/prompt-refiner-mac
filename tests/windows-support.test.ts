@@ -46,6 +46,6 @@ describe("Windows desktop support", () => {
     expect(workflow).toContain("runs-on: windows-latest");
     expect(workflow).toContain("run: pnpm test");
     expect(workflow).toContain("run: pnpm pack:win");
-    expect(workflow).toContain("actions/upload-artifact@v4");
+    expect(workflow).toContain("actions/upload-artifact@v7");
   });
 });
