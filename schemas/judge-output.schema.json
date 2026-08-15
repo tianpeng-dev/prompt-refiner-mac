@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["scores", "ranking"],
+  "properties": {
+    "scores": {
+      "type": "array", "minItems": 3, "maxItems": 3,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["label", "task_satisfaction", "factual_fidelity", "completeness", "actionability", "no_extra_constraints", "overall", "notes"],
+        "properties": {
+          "label": {"type": "string", "enum": ["A", "B", "C"]},
+          "task_satisfaction": {"type": "integer", "minimum": 0, "maximum": 10},
+          "factual_fidelity": {"type": "integer", "minimum": 0, "maximum": 10},
+          "completeness": {"type": "integer", "minimum": 0, "maximum": 10},
+          "actionability": {"type": "integer", "minimum": 0, "maximum": 10},
+          "no_extra_constraints": {"type": "integer", "minimum": 0, "maximum": 10},
+          "overall": {"type": "number", "minimum": 0, "maximum": 10},
+          "notes": {"type": "string", "maxLength": 300}
+        }
+      }
+    },
+    "ranking": {"type": "array", "items": {"type": "string", "enum": ["A", "B", "C"]}, "minItems": 3, "maxItems": 3}
+  }
+}

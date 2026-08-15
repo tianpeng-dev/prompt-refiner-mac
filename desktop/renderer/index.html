@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; font-src 'self'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>精炼台</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="compact-shell">
+      <section class="prompt-box" aria-label="提示词优化输入框">
+        <label class="sr-only" for="editor">需要优化的提示词</label>
+        <textarea
+          id="editor"
+          maxlength="2000"
+          spellcheck="false"
+          autofocus
+          placeholder="输入需要优化的内容…"
+        ></textarea>
+        <div class="refresh-layer" aria-hidden="true">
+          <div class="refresh-text" id="refresh-text"></div>
+        </div>
+
+        <p class="toast" id="status" role="status" aria-live="polite" hidden></p>
+
+        <button
+          class="action-button"
+          id="action-button"
+          type="button"
+          data-mode="optimize"
+          aria-label="优化输入内容"
+          title="优化输入内容（⌘↩）"
+          disabled
+        >
+          <svg class="action-icon action-icon--optimize" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2 14 9l7 2-7 2-2 7-2-7-7-2 7-2 2-7Z" />
+            <path d="m19 3 .7 2.3L22 6l-2.3.7L19 9l-.7-2.3L16 6l2.3-.7L19 3Z" />
+          </svg>
+          <svg class="action-icon action-icon--undo" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m9 7-5 5 5 5" />
+            <path d="M5 12h8a6 6 0 0 1 6 6" />
+          </svg>
+        </button>
+      </section>
+
+      <section class="settings-panel" id="settings-panel" aria-labelledby="settings-title" hidden>
+        <div class="settings-heading">
+          <h2 id="settings-title">设置</h2>
+          <button class="close-button" id="settings-close" type="button" aria-label="关闭设置">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m6 6 12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </div>
+
+        <label class="setting-row" for="launch-toggle">
+          <span>
+            <strong>登录时启动</strong>
+            <small>静默驻留在菜单栏</small>
+          </span>
+          <input id="launch-toggle" type="checkbox" />
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+
+        <div class="setting-row">
+          <span>
+            <strong>全局快捷键</strong>
+            <small>点击后按下新组合键</small>
+          </span>
+          <button class="shortcut-recorder" id="shortcut-recorder" type="button">
+            <kbd id="shortcut-label">⌥⌘P</kbd>
+          </button>
+        </div>
+        <p class="settings-status" id="settings-status" role="status" aria-live="polite"></p>
+      </section>
+    </main>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

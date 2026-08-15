@@ -1,0 +1,77 @@
+{
+  "name": "prompt-refiner-mvp",
+  "version": "1.0.0",
+  "description": "仅驻留在 macOS 菜单栏的 Trae 提示词优化器",
+  "author": "精炼台",
+  "private": true,
+  "type": "module",
+  "main": "dist/desktop/main.js",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "postinstall": "install-electron",
+    "prebuild": "pnpm clean",
+    "dev": "pnpm build && electron .",
+    "build": "tsc -p tsconfig.json",
+    "start": "electron .",
+    "icons": "bash scripts/build-icons.sh",
+    "pack:mac": "pnpm build && pnpm icons && electron-builder --mac dir --arm64",
+    "test": "vitest run --dir tests",
+    "test:watch": "vitest --dir tests"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "electron": "43.4.0",
+    "electron-builder": "26.15.3",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.8"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "build": {
+    "appId": "com.local.prompt-refiner",
+    "productName": "精炼台",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/src/**/*",
+      "dist/desktop/**/*",
+      "desktop/preload.cjs",
+      "desktop/renderer/**/*",
+      "prompts/trae-direct.md",
+      "assets/app-icon.icns",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "assets/tray-iconTemplate.png",
+        "to": "tray-iconTemplate.png"
+      },
+      {
+        "from": "assets/tray-iconTemplate@2x.png",
+        "to": "tray-iconTemplate@2x.png"
+      }
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.productivity",
+      "icon": "assets/app-icon.icns",
+      "identity": null,
+      "extendInfo": {
+        "LSUIElement": true
+      }
+    }
+  }
+}
