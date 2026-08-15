@@ -21,8 +21,12 @@ import {
   calculateWindowPosition,
   createClipboardController,
   DEFAULT_SETTINGS,
+  desktopPlatform,
   formatShortcut,
+  loginItemSettings,
   normalizeSettings,
+  shouldShowWindowAtStartup,
+  trayIconName,
   validateShortcut,
 } from "./logic.js";
 import {
@@ -40,6 +44,7 @@ import {
 const WINDOW_SIZE = { width: 440, height: 240 };
 const SETTINGS_FILE = "settings.json";
 const TRAE_TOKEN_FILE = "trae-token.enc";
+const PLATFORM = desktopPlatform(process.platform);
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -101,15 +106,15 @@ async function saveSettings(value: DesktopSettings): Promise<void> {
 }
 
 function applyLoginItem(): void {
-  if (!app.isPackaged) return;
-  app.setLoginItemSettings({
-    openAtLogin: settings.launchAtLogin,
-    type: "mainAppService",
-  });
+  if (!app.isPackaged || PLATFORM === "other") return;
+  app.setLoginItemSettings(
+    loginItemSettings(PLATFORM, settings.launchAtLogin, process.execPath),
+  );
 }
 
 function settingsSnapshot(): SettingsSnapshot {
   return {
+    platform: PLATFORM,
     settings: { ...settings },
     shortcutRegistered: registeredShortcut === settings.shortcut,
     shortcutError,
@@ -161,7 +166,7 @@ function registerShortcut(shortcut: string): boolean {
     registeredShortcut = shortcut;
     shortcutError = null;
   } else {
-    shortcutError = `${formatShortcut(shortcut)} 已被其他应用占用。`;
+    shortcutError = `${formatShortcut(shortcut, PLATFORM)} 已被其他应用占用。`;
   }
   return registered;
 }
@@ -176,7 +181,7 @@ async function updateSettings(update: SettingsUpdate): Promise<SettingsSnapshot>
     const candidate = validateShortcut(update.shortcut);
     if (candidate !== registeredShortcut) {
       if (!globalShortcut.register(candidate, () => showWindow(true))) {
-        shortcutError = `${formatShortcut(candidate)} 已被其他应用占用，原快捷键仍然有效。`;
+        shortcutError = `${formatShortcut(candidate, PLATFORM)} 已被其他应用占用，原快捷键仍然有效。`;
         return settingsSnapshot();
       }
       if (registeredShortcut) globalShortcut.unregister(registeredShortcut);
@@ -295,7 +300,7 @@ function rebuildTrayMenu(): void {
       },
     },
     {
-      label: `快捷键设置…  ${formatShortcut(settings.shortcut)}`,
+      label: `快捷键设置…  ${formatShortcut(settings.shortcut, PLATFORM)}`,
       click: () => {
         showWindow();
         sendRendererEvent(RENDERER_EVENTS.openSettings);
@@ -314,11 +319,12 @@ function rebuildTrayMenu(): void {
 }
 
 function trayImage() {
+  const filename = trayIconName(PLATFORM);
   const iconPath = app.isPackaged
-    ? path.join(process.resourcesPath, "tray-iconTemplate.png")
-    : path.join(app.getAppPath(), "assets", "tray-iconTemplate.png");
+    ? path.join(process.resourcesPath, filename)
+    : path.join(app.getAppPath(), "assets", filename);
   const image = nativeImage.createFromPath(iconPath);
-  image.setTemplateImage(true);
+  if (PLATFORM === "darwin") image.setTemplateImage(true);
   return image;
 }
 
@@ -414,6 +420,7 @@ function setupIpc(): void {
 }
 
 async function initialize(): Promise<void> {
+  if (PLATFORM === "win32") app.setAppUserModelId("com.local.prompt-refiner");
   process.env.PROMPT_REFINER_ROOT = app.getAppPath();
   settingsPath = path.join(app.getPath("userData"), SETTINGS_FILE);
   settings = await readSettings();
@@ -454,8 +461,12 @@ async function initialize(): Promise<void> {
   rebuildTrayMenu();
   void traeAuth.warmup().then(() => rebuildTrayMenu());
 
-  const wasOpenedAtLogin = app.getLoginItemSettings().wasOpenedAtLogin;
-  if (!wasOpenedAtLogin) showWindow();
+  const wasOpenedAtLogin = PLATFORM === "darwin"
+    ? app.getLoginItemSettings().wasOpenedAtLogin
+    : false;
+  if (shouldShowWindowAtStartup(PLATFORM, process.argv, wasOpenedAtLogin)) {
+    showWindow();
+  }
 }
 
 if (!app.requestSingleInstanceLock()) {

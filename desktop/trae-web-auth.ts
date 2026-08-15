@@ -137,7 +137,7 @@ export class TraeWebAuth {
 
   private async storeToken(token: string): Promise<void> {
     if (!safeStorage.isEncryptionAvailable()) {
-      throw new Error("macOS 无法安全保存 Trae 登录状态。");
+      throw new Error("系统无法安全保存 Trae 登录状态。");
     }
     await mkdir(path.dirname(this.options.tokenPath), { recursive: true });
     const temporaryPath = `${this.options.tokenPath}.${process.pid}.tmp`;

@@ -27,8 +27,11 @@ sips -z 512 512 "$source_png" --out "$iconset/icon_512x512.png" >/dev/null
 cp "$source_png" "$iconset/icon_512x512@2x.png"
 
 iconutil -c icns "$iconset" -o "$project_root/assets/app-icon.icns"
+sips -z 512 512 "$source_png" --out "$project_root/assets/app-icon.png" >/dev/null
 
 sips -z 18 18 -s format png "$project_root/assets/tray-icon.svg" \
   --out "$project_root/assets/tray-iconTemplate.png" >/dev/null
 sips -z 36 36 -s format png "$project_root/assets/tray-icon.svg" \
   --out "$project_root/assets/tray-iconTemplate@2x.png" >/dev/null
+sips -z 32 32 -s format png "$project_root/assets/tray-icon-win.svg" \
+  --out "$project_root/assets/tray-icon-win.png" >/dev/null
