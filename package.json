@@ -1,7 +1,7 @@
 {
   "name": "prompt-refiner-mvp",
-  "version": "1.0.0",
-  "description": "仅驻留在 macOS 菜单栏的 Trae 提示词优化器",
+  "version": "1.1.0",
+  "description": "驻留在 macOS 菜单栏或 Windows 系统托盘的 Trae 提示词优化器",
   "author": "精炼台",
   "private": true,
   "type": "module",
@@ -18,6 +18,7 @@
     "start": "electron .",
     "icons": "bash scripts/build-icons.sh",
     "pack:mac": "pnpm build && pnpm icons && electron-builder --mac dir --arm64",
+    "pack:win": "pnpm build && electron-builder --win nsis --x64",
     "test": "vitest run --dir tests",
     "test:watch": "vitest --dir tests"
   },
@@ -55,6 +56,10 @@
       {
         "from": "assets/tray-iconTemplate@2x.png",
         "to": "tray-iconTemplate@2x.png"
+      },
+      {
+        "from": "assets/tray-icon-win.png",
+        "to": "tray-icon-win.png"
       }
     ],
     "mac": {
@@ -72,6 +77,25 @@
       "extendInfo": {
         "LSUIElement": true
       }
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/app-icon.png",
+      "artifactName": "JingLianTai-${version}-win-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": true,
+      "shortcutName": "精炼台"
     }
   }
 }

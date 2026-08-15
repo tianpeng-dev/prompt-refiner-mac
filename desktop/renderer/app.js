@@ -18,6 +18,7 @@ const state = {
   undo: null,
   settingsOpen: false,
   capturingShortcut: false,
+  platform: "darwin",
   settings: null,
   toastTimer: null,
 };
@@ -44,7 +45,8 @@ function setMode(mode) {
   actionButton.dataset.mode = mode;
   const undoMode = mode === "undo";
   actionButton.setAttribute("aria-label", undoMode ? "撤销优化" : "优化输入内容");
-  actionButton.title = undoMode ? "撤销优化" : "优化输入内容（⌘↩）";
+  const submitShortcut = state.platform === "darwin" ? "⌘↩" : "Ctrl+Enter";
+  actionButton.title = undoMode ? "撤销优化" : `优化输入内容（${submitShortcut}）`;
   updateControls();
 }
 
@@ -145,14 +147,26 @@ async function undoOptimization() {
   }
 }
 
-function formatShortcut(value) {
+function formatShortcut(value, platform = state.platform) {
   const parts = value.split("+");
   const key = parts.at(-1) ?? "";
+  if (platform !== "darwin") {
+    return [
+      parts.includes("CommandOrControl") || parts.includes("Control")
+        ? "Ctrl"
+        : null,
+      parts.includes("Alt") ? "Alt" : null,
+      parts.includes("Shift") ? "Shift" : null,
+      key,
+    ]
+      .filter(Boolean)
+      .join("+");
+  }
   const symbols = [
     ["Control", "⌃"],
     ["Alt", "⌥"],
     ["Shift", "⇧"],
-    ["Command", "⌘"],
+    ["CommandOrControl", "⌘"],
   ]
     .filter(([modifier]) => parts.includes(modifier))
     .map(([, symbol]) => symbol)
@@ -161,12 +175,14 @@ function formatShortcut(value) {
 }
 
 function renderSettings(snapshot) {
+  state.platform = snapshot.platform;
   state.settings = snapshot.settings;
   launchToggle.checked = snapshot.settings.launchAtLogin;
   shortcutLabel.textContent = formatShortcut(snapshot.settings.shortcut);
   shortcutRecorder.classList.toggle("shortcut-recorder--error", !snapshot.shortcutRegistered);
   settingsStatus.textContent = snapshot.shortcutError ?? "";
   settingsStatus.dataset.tone = snapshot.shortcutError ? "error" : "neutral";
+  setMode(actionButton.dataset.mode);
 }
 
 function openSettings() {
@@ -184,8 +200,18 @@ function closeSettings() {
 }
 
 function shortcutFromEvent(event) {
-  if (!event.metaKey || !(event.altKey || event.ctrlKey || event.shiftKey)) {
-    throw new Error("请使用 Command，并搭配 Option、Control 或 Shift。");
+  const primaryPressed = state.platform === "darwin"
+    ? event.metaKey
+    : event.ctrlKey;
+  const additionalPressed = state.platform === "darwin"
+    ? event.altKey || event.ctrlKey || event.shiftKey
+    : event.altKey || event.shiftKey;
+  if (!primaryPressed || !additionalPressed) {
+    throw new Error(
+      state.platform === "darwin"
+        ? "请使用 Command，并搭配 Option、Control 或 Shift。"
+        : "请使用 Ctrl，并搭配 Alt 或 Shift。",
+    );
   }
   let key = "";
   if (/^Key[A-Z]$/.test(event.code)) key = event.code.slice(3);
@@ -193,8 +219,8 @@ function shortcutFromEvent(event) {
   if (/^F(?:[1-9]|1\d|20)$/.test(event.code)) key = event.code;
   if (!key) throw new Error("请再按一个字母、数字或功能键。");
   return [
-    "Command",
-    event.ctrlKey ? "Control" : null,
+    "CommandOrControl",
+    state.platform === "darwin" && event.ctrlKey ? "Control" : null,
     event.altKey ? "Alt" : null,
     event.shiftKey ? "Shift" : null,
     key,
@@ -268,7 +294,7 @@ window.addEventListener("keydown", (event) => {
     return;
   }
   if (
-    event.metaKey &&
+    (state.platform === "darwin" ? event.metaKey : event.ctrlKey) &&
     event.key === "Enter" &&
     !state.settingsOpen &&
     actionButton.dataset.mode === "optimize"
@@ -280,7 +306,7 @@ window.addEventListener("keydown", (event) => {
 
 async function boot() {
   if (!bridge) {
-    showToast("请从精炼台 macOS 应用打开。", "error", true);
+    showToast("请从精炼台桌面应用打开。", "error", true);
     actionButton.disabled = true;
     editor.disabled = true;
     return;

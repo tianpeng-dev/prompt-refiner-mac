@@ -3,8 +3,12 @@ import {
   calculateWindowPosition,
   createClipboardController,
   DEFAULT_SETTINGS,
+  desktopPlatform,
   formatShortcut,
+  loginItemSettings,
   normalizeSettings,
+  shouldShowWindowAtStartup,
+  trayIconName,
   validateShortcut,
 } from "../desktop/logic.js";
 import type { OptimizeResponse } from "../src/types.js";
@@ -36,9 +40,9 @@ describe("desktop settings", () => {
     ).toEqual({
       schemaVersion: 1,
       launchAtLogin: false,
-      shortcut: "Command+Alt+K",
+      shortcut: "CommandOrControl+Alt+K",
     });
-    expect(() => validateShortcut("Option+P")).toThrow("Command");
+    expect(() => validateShortcut("Option+P")).toThrow("Command 或 Ctrl");
     expect(() => validateShortcut("Command+P")).toThrow("再加入");
     expect(() => validateShortcut("Command+Alt+PageDown")).toThrow("字母");
   });
@@ -52,7 +56,31 @@ describe("desktop settings", () => {
         shortcut: "P",
       }).shortcut,
     ).toBe(DEFAULT_SETTINGS.shortcut);
-    expect(formatShortcut(DEFAULT_SETTINGS.shortcut)).toBe("⌥⌘P");
+    expect(formatShortcut(DEFAULT_SETTINGS.shortcut, "darwin")).toBe("⌥⌘P");
+    expect(formatShortcut(DEFAULT_SETTINGS.shortcut, "win32")).toBe("Ctrl+Alt+P");
+  });
+
+  it("selects platform-specific tray, login, and startup behavior", () => {
+    expect(desktopPlatform("darwin")).toBe("darwin");
+    expect(desktopPlatform("win32")).toBe("win32");
+    expect(desktopPlatform("linux")).toBe("other");
+    expect(trayIconName("darwin")).toBe("tray-iconTemplate.png");
+    expect(trayIconName("win32")).toBe("tray-icon-win.png");
+    expect(loginItemSettings("darwin", true, "/app")).toEqual({
+      openAtLogin: true,
+      type: "mainAppService",
+    });
+    expect(loginItemSettings("win32", true, "C:\\App\\精炼台.exe")).toEqual({
+      openAtLogin: true,
+      path: "C:\\App\\精炼台.exe",
+      args: ["--hidden"],
+      enabled: true,
+      name: "精炼台",
+    });
+    expect(shouldShowWindowAtStartup("win32", ["app.exe", "--hidden"], false))
+      .toBe(false);
+    expect(shouldShowWindowAtStartup("win32", ["app.exe"], false)).toBe(true);
+    expect(shouldShowWindowAtStartup("darwin", [], true)).toBe(false);
   });
 });
 
@@ -72,6 +100,23 @@ describe("popover placement", () => {
         { width: 480, height: 680 },
       ).x,
     ).toBe(8);
+  });
+
+  it("anchors beside vertical Windows taskbars", () => {
+    expect(
+      calculateWindowPosition(
+        { x: 1920, y: 600, width: 48, height: 48 },
+        { x: 0, y: 0, width: 1920, height: 1080 },
+        { width: 440, height: 240 },
+      ),
+    ).toEqual({ x: 1472, y: 504 });
+    expect(
+      calculateWindowPosition(
+        { x: 0, y: 300, width: 48, height: 48 },
+        { x: 48, y: 0, width: 1872, height: 1080 },
+        { width: 440, height: 240 },
+      ),
+    ).toEqual({ x: 56, y: 204 });
   });
 });
 

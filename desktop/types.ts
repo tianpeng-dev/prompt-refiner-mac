@@ -29,12 +29,15 @@ export type DesktopSettings = {
   shortcut: string;
 };
 
+export type DesktopPlatform = "darwin" | "win32" | "other";
+
 export type SettingsUpdate = {
   launchAtLogin?: boolean;
   shortcut?: string;
 };
 
 export type SettingsSnapshot = {
+  platform: DesktopPlatform;
   settings: DesktopSettings;
   shortcutRegistered: boolean;
   shortcutError: string | null;
