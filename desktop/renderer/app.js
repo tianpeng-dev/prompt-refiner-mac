@@ -4,6 +4,7 @@ const promptBox = document.querySelector(".prompt-box");
 const editor = document.querySelector("#editor");
 const refreshText = document.querySelector("#refresh-text");
 const actionButton = document.querySelector("#action-button");
+const pinButton = document.querySelector("#pin-button");
 const status = document.querySelector("#status");
 const settingsPanel = document.querySelector("#settings-panel");
 const settingsClose = document.querySelector("#settings-close");
@@ -182,6 +183,14 @@ function formatShortcut(value, platform = state.platform) {
   return `${symbols}${key}`;
 }
 
+function renderPinState(alwaysOnTop) {
+  pinButton.setAttribute("aria-pressed", String(alwaysOnTop));
+  const label = alwaysOnTop ? "取消窗口置顶" : "窗口置顶";
+  pinButton.setAttribute("aria-label", label);
+  pinButton.title = label;
+  promptBox.classList.toggle("is-pinned", alwaysOnTop);
+}
+
 function renderSettings(snapshot) {
   state.platform = snapshot.platform;
   state.settings = snapshot.settings;
@@ -191,7 +200,24 @@ function renderSettings(snapshot) {
   shortcutRecorder.classList.toggle("shortcut-recorder--error", !snapshot.shortcutRegistered);
   settingsStatus.textContent = snapshot.shortcutError ?? "";
   settingsStatus.dataset.tone = snapshot.shortcutError ? "error" : "neutral";
+  renderPinState(snapshot.settings.alwaysOnTop);
   setMode(actionButton.dataset.mode);
+}
+
+async function toggleAlwaysOnTop() {
+  if (!state.settings || pinButton.disabled) return;
+  const previous = state.settings.alwaysOnTop;
+  pinButton.disabled = true;
+  try {
+    const snapshot = await bridge.settings.update({ alwaysOnTop: !previous });
+    renderSettings(snapshot);
+    showToast(snapshot.settings.alwaysOnTop ? "已置顶" : "已取消置顶", "ready");
+  } catch (error) {
+    renderPinState(previous);
+    showToast(errorMessage(error), "error", true);
+  } finally {
+    pinButton.disabled = false;
+  }
 }
 
 function openSettings() {
@@ -270,6 +296,7 @@ actionButton.addEventListener("click", () => {
   if (actionButton.dataset.mode === "undo") void undoOptimization();
   else void optimizeEditor();
 });
+pinButton.addEventListener("click", () => void toggleAlwaysOnTop());
 settingsClose.addEventListener("click", closeSettings);
 shortcutRecorder.addEventListener("click", () => {
   state.capturingShortcut = true;

@@ -1,14 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   calculateWindowPosition,
+  constrainWindowPosition,
   createClipboardController,
   DEFAULT_SETTINGS,
   desktopPlatform,
   formatShortcut,
   loginItemSettings,
   normalizeSettings,
+  selectDisplayForBounds,
+  shouldHideWindowOnBlur,
   shouldShowWindowAtStartup,
   trayIconName,
+  validateSettingsUpdate,
   validateShortcut,
 } from "../desktop/logic.js";
 import type { OptimizeResponse } from "../src/types.js";
@@ -37,10 +41,12 @@ describe("desktop settings", () => {
         shortcut: "Option+Command+K",
       }),
     ).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
       launchAtLogin: false,
       optimizeClipboardOnShortcut: true,
       shortcut: "CommandOrControl+Alt+K",
+      alwaysOnTop: true,
+      windowPosition: null,
     });
     expect(() => validateShortcut("Option+P")).toThrow("Command 或 Ctrl");
     expect(() => validateShortcut("Command+P")).toThrow("再加入");
@@ -48,17 +54,50 @@ describe("desktop settings", () => {
   });
 
   it("migrates existing settings with shortcut clipboard optimization disabled", () => {
-    expect(
+    const migrated =
       normalizeSettings({
         schemaVersion: 1,
         launchAtLogin: false,
         shortcut: "Command+Option+K",
-      }).optimizeClipboardOnShortcut,
-    ).toBe(false);
+      });
+    expect(migrated).toMatchObject({
+      schemaVersion: 2,
+      launchAtLogin: false,
+      optimizeClipboardOnShortcut: false,
+      shortcut: "CommandOrControl+Alt+K",
+      alwaysOnTop: true,
+      windowPosition: null,
+    });
+  });
+
+  it("keeps valid positions and discards invalid coordinates", () => {
+    expect(
+      normalizeSettings({
+        schemaVersion: 2,
+        launchAtLogin: false,
+        optimizeClipboardOnShortcut: true,
+        shortcut: "Command+Option+K",
+        alwaysOnTop: false,
+        windowPosition: { x: -810.6, y: 42.4 },
+      }),
+    ).toEqual({
+      schemaVersion: 2,
+      launchAtLogin: false,
+      optimizeClipboardOnShortcut: true,
+      shortcut: "CommandOrControl+Alt+K",
+      alwaysOnTop: false,
+      windowPosition: { x: -811, y: 42 },
+    });
+    expect(
+      normalizeSettings({
+        ...DEFAULT_SETTINGS,
+        windowPosition: { x: Number.NaN, y: 20 },
+      }).windowPosition,
+    ).toBeNull();
   });
 
   it("falls back when the persisted schema or shortcut is invalid", () => {
-    expect(normalizeSettings({ schemaVersion: 2 })).toEqual(DEFAULT_SETTINGS);
+    expect(normalizeSettings({ schemaVersion: 3 })).toEqual(DEFAULT_SETTINGS);
     expect(
       normalizeSettings({
         schemaVersion: 1,
@@ -68,6 +107,21 @@ describe("desktop settings", () => {
     ).toBe(DEFAULT_SETTINGS.shortcut);
     expect(formatShortcut(DEFAULT_SETTINGS.shortcut, "darwin")).toBe("⌥⌘P");
     expect(formatShortcut(DEFAULT_SETTINGS.shortcut, "win32")).toBe("Ctrl+Alt+P");
+  });
+
+  it("rejects invalid pin settings at the IPC boundary", () => {
+    expect(validateSettingsUpdate({ alwaysOnTop: false })).toEqual({
+      launchAtLogin: undefined,
+      optimizeClipboardOnShortcut: undefined,
+      shortcut: undefined,
+      alwaysOnTop: false,
+    });
+    expect(() => validateSettingsUpdate({ alwaysOnTop: "yes" })).toThrow(
+      "窗口置顶设置无效",
+    );
+    expect(
+      validateSettingsUpdate({ windowPosition: { x: 1, y: 2 } }),
+    ).not.toHaveProperty("windowPosition");
   });
 
   it("selects platform-specific tray, login, and startup behavior", () => {
@@ -127,6 +181,61 @@ describe("popover placement", () => {
         { width: 440, height: 240 },
       ),
     ).toEqual({ x: 56, y: 204 });
+  });
+
+  it("snaps near all work-area edges and clamps off-screen windows", () => {
+    const workArea = { x: 0, y: 24, width: 1200, height: 800 };
+    expect(
+      constrainWindowPosition(
+        { x: 5, y: 30, width: 440, height: 240 },
+        workArea,
+      ),
+    ).toEqual({ x: 8, y: 32 });
+    expect(
+      constrainWindowPosition(
+        { x: 750, y: 570, width: 440, height: 240 },
+        workArea,
+      ),
+    ).toEqual({ x: 752, y: 576 });
+    expect(
+      constrainWindowPosition(
+        { x: -300, y: 900, width: 440, height: 240 },
+        workArea,
+      ),
+    ).toEqual({ x: 8, y: 576 });
+    expect(
+      constrainWindowPosition(
+        { x: -1915, y: 5, width: 440, height: 240 },
+        { x: -1920, y: 0, width: 1920, height: 1080 },
+      ),
+    ).toEqual({ x: -1912, y: 8 });
+  });
+
+  it("chooses the display with the largest overlap and falls back to primary", () => {
+    const displays = [
+      { id: 1, workArea: { x: -1920, y: 0, width: 1920, height: 1080 } },
+      { id: 2, workArea: { x: 0, y: 24, width: 1440, height: 876 } },
+    ];
+    expect(
+      selectDisplayForBounds(
+        { x: -300, y: 100, width: 440, height: 240 },
+        displays,
+        2,
+      )?.id,
+    ).toBe(1);
+    expect(
+      selectDisplayForBounds(
+        { x: 5000, y: 5000, width: 440, height: 240 },
+        displays,
+        2,
+      )?.id,
+    ).toBe(2);
+  });
+
+  it("keeps pinned windows visible on blur", () => {
+    expect(shouldHideWindowOnBlur(true, false)).toBe(false);
+    expect(shouldHideWindowOnBlur(false, false)).toBe(true);
+    expect(shouldHideWindowOnBlur(false, true)).toBe(false);
   });
 });
 

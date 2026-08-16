@@ -17,13 +17,66 @@ describe("compact menu-bar UI", () => {
     expect(html).not.toContain("CONSTRAINT RAIL");
   });
 
-  it("uses less than half of the previous 480 by 680 window area", async () => {
+  it("uses the selected compact 460 by 176 window", async () => {
     const source = await readFile(
       path.join(PROJECT_ROOT, "desktop", "main.ts"),
       "utf8",
     );
-    expect(source).toContain("const WINDOW_SIZE = { width: 440, height: 240 }");
-    expect((440 * 240) / (480 * 680)).toBeLessThan(0.5);
+    expect(source).toContain("const WINDOW_SIZE = { width: 460, height: 176 }");
+    expect((460 * 176) / (480 * 680)).toBeLessThan(0.25);
+  });
+
+  it("provides native drag regions and an accessible pin toggle", async () => {
+    const [html, styles, renderer, source] = await Promise.all([
+      readFile(path.join(PROJECT_ROOT, "desktop", "renderer", "index.html"), "utf8"),
+      readFile(path.join(PROJECT_ROOT, "desktop", "renderer", "styles.css"), "utf8"),
+      readFile(path.join(PROJECT_ROOT, "desktop", "renderer", "app.js"), "utf8"),
+      readFile(path.join(PROJECT_ROOT, "desktop", "main.ts"), "utf8"),
+    ]);
+    expect(html).toContain('class="window-drag-rail"');
+    expect(html).toContain('id="pin-button"');
+    expect(html).toContain('aria-pressed="true"');
+    expect(styles).toContain(".window-drag-rail");
+    expect(styles).toMatch(/^\s+app-region: drag;$/m);
+    expect(styles).toMatch(/^\s+app-region: no-drag;$/m);
+    expect(styles).toContain("-webkit-app-region: drag");
+    expect(styles).toContain("-webkit-app-region: no-drag");
+    expect(styles).toContain('.pin-button[aria-pressed="true"]');
+    expect(styles).not.toContain(".prompt-box.is-pinned {");
+    expect(html).toContain('class="icon icon--pin"');
+    expect(html).toContain("icon--sparkles");
+    expect(html).toContain("icon--undo");
+    expect(styles).toContain("button:focus-visible");
+    expect(styles).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(renderer).toContain("pinButton.setAttribute(\"aria-pressed\"");
+    expect(renderer).toContain("bridge.settings.update({ alwaysOnTop: !previous })");
+    expect(source).toContain("movable: true");
+    expect(source).toContain("mainWindow?.setAlwaysOnTop(settings.alwaysOnTop)");
+    expect(source).toContain("shouldHideWindowOnBlur(settings.alwaysOnTop");
+  });
+
+  it("keeps long editor content above the utility and status rail", async () => {
+    const styles = await readFile(
+      path.join(PROJECT_ROOT, "desktop", "renderer", "styles.css"),
+      "utf8",
+    );
+    const editorStyles = styles.slice(
+      styles.indexOf("textarea {"),
+      styles.indexOf("textarea::placeholder"),
+    );
+    const refreshStyles = styles.slice(
+      styles.indexOf(".refresh-layer {"),
+      styles.indexOf(".refresh-text {"),
+    );
+    expect(styles).toContain("--utility-rail-height: 44px");
+    expect(styles).toContain("height: var(--utility-rail-height)");
+    expect(styles).toContain("textarea:focus-visible");
+    expect(styles).toContain("outline: 0");
+    expect(editorStyles).toContain("bottom: var(--utility-rail-height)");
+    expect(editorStyles).toContain("height: auto");
+    expect(refreshStyles).toContain(
+      "inset: 0 0 var(--utility-rail-height)",
+    );
   });
 
   it("returns to optimize mode when the editor is cleared", async () => {

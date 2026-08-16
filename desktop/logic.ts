@@ -5,16 +5,21 @@ import type {
   ClipboardUndoResult,
   DesktopPlatform,
   DesktopSettings,
+  SettingsUpdate,
+  WindowPosition,
 } from "./types.js";
 
 export const DEFAULT_SETTINGS: DesktopSettings = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   launchAtLogin: true,
   optimizeClipboardOnShortcut: false,
   shortcut: "CommandOrControl+Alt+P",
+  alwaysOnTop: true,
+  windowPosition: null,
 };
 
-type Rectangle = { x: number; y: number; width: number; height: number };
+export type Rectangle = { x: number; y: number; width: number; height: number };
+export type DisplayArea = { id: number; workArea: Rectangle };
 type Size = { width: number; height: number };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -22,7 +27,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function normalizeSettings(value: unknown): DesktopSettings {
-  if (!isRecord(value) || value.schemaVersion !== 1) {
+  if (
+    !isRecord(value) ||
+    (value.schemaVersion !== 1 && value.schemaVersion !== 2)
+  ) {
     return { ...DEFAULT_SETTINGS };
   }
   let shortcut = DEFAULT_SETTINGS.shortcut;
@@ -31,8 +39,17 @@ export function normalizeSettings(value: unknown): DesktopSettings {
   } catch {
     // Invalid persisted shortcuts fall back to a known-safe default.
   }
+  const position =
+    isRecord(value.windowPosition) &&
+      Number.isFinite(value.windowPosition.x) &&
+      Number.isFinite(value.windowPosition.y)
+      ? {
+          x: Math.round(value.windowPosition.x as number),
+          y: Math.round(value.windowPosition.y as number),
+        }
+      : null;
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     launchAtLogin:
       typeof value.launchAtLogin === "boolean"
         ? value.launchAtLogin
@@ -42,6 +59,42 @@ export function normalizeSettings(value: unknown): DesktopSettings {
         ? value.optimizeClipboardOnShortcut
         : DEFAULT_SETTINGS.optimizeClipboardOnShortcut,
     shortcut,
+    alwaysOnTop:
+      typeof value.alwaysOnTop === "boolean"
+        ? value.alwaysOnTop
+        : DEFAULT_SETTINGS.alwaysOnTop,
+    windowPosition: value.schemaVersion === 2 ? position : null,
+  };
+}
+
+export function validateSettingsUpdate(value: unknown): SettingsUpdate {
+  if (!isRecord(value) || Array.isArray(value)) {
+    throw new TypeError("设置内容无效。");
+  }
+  if (
+    value.launchAtLogin !== undefined &&
+    typeof value.launchAtLogin !== "boolean"
+  ) {
+    throw new TypeError("登录启动设置无效。");
+  }
+  if (
+    value.optimizeClipboardOnShortcut !== undefined &&
+    typeof value.optimizeClipboardOnShortcut !== "boolean"
+  ) {
+    throw new TypeError("快捷键自动优化设置无效。");
+  }
+  if (
+    value.alwaysOnTop !== undefined &&
+    typeof value.alwaysOnTop !== "boolean"
+  ) {
+    throw new TypeError("窗口置顶设置无效。");
+  }
+  return {
+    launchAtLogin: value.launchAtLogin as boolean | undefined,
+    optimizeClipboardOnShortcut:
+      value.optimizeClipboardOnShortcut as boolean | undefined,
+    shortcut: value.shortcut as string | undefined,
+    alwaysOnTop: value.alwaysOnTop as boolean | undefined,
   };
 }
 
@@ -183,6 +236,88 @@ export function calculateWindowPosition(
     );
   }
   return { x, y };
+}
+
+export function rectangleIntersectionArea(
+  first: Rectangle,
+  second: Rectangle,
+): number {
+  const width = Math.max(
+    0,
+    Math.min(first.x + first.width, second.x + second.width) -
+      Math.max(first.x, second.x),
+  );
+  const height = Math.max(
+    0,
+    Math.min(first.y + first.height, second.y + second.height) -
+      Math.max(first.y, second.y),
+  );
+  return width * height;
+}
+
+export function selectDisplayForBounds(
+  bounds: Rectangle,
+  displays: DisplayArea[],
+  primaryDisplayId: number,
+): DisplayArea | null {
+  let selected: DisplayArea | null = null;
+  let selectedArea = 0;
+  for (const display of displays) {
+    const area = rectangleIntersectionArea(bounds, display.workArea);
+    if (area > selectedArea) {
+      selected = display;
+      selectedArea = area;
+    }
+  }
+  if (selected) return selected;
+  return (
+    displays.find((display) => display.id === primaryDisplayId) ??
+    displays[0] ??
+    null
+  );
+}
+
+export function constrainWindowPosition(
+  bounds: Rectangle,
+  workArea: Rectangle,
+  snapThreshold = 16,
+  inset = 8,
+): WindowPosition {
+  const minimumX = workArea.x + inset;
+  const maximumX = workArea.x + workArea.width - bounds.width - inset;
+  const minimumY = workArea.y + inset;
+  const maximumY = workArea.y + workArea.height - bounds.height - inset;
+  const workAreaRight = workArea.x + workArea.width;
+  const workAreaBottom = workArea.y + workArea.height;
+
+  let x = Math.round(bounds.x);
+  let y = Math.round(bounds.y);
+  if (Math.abs(bounds.x - workArea.x) <= snapThreshold) {
+    x = minimumX;
+  } else if (
+    Math.abs(bounds.x + bounds.width - workAreaRight) <= snapThreshold
+  ) {
+    x = maximumX;
+  } else {
+    x = clamp(x, minimumX, maximumX);
+  }
+  if (Math.abs(bounds.y - workArea.y) <= snapThreshold) {
+    y = minimumY;
+  } else if (
+    Math.abs(bounds.y + bounds.height - workAreaBottom) <= snapThreshold
+  ) {
+    y = maximumY;
+  } else {
+    y = clamp(y, minimumY, maximumY);
+  }
+  return { x, y };
+}
+
+export function shouldHideWindowOnBlur(
+  alwaysOnTop: boolean,
+  devToolsOpen: boolean,
+): boolean {
+  return !alwaysOnTop && !devToolsOpen;
 }
 
 export function desktopPlatform(value: NodeJS.Platform): DesktopPlatform {
