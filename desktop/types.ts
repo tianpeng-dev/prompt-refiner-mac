@@ -24,11 +24,18 @@ export const RENDERER_EVENTS = {
   operationError: "operation:error",
 } as const;
 
+export type WindowPosition = {
+  x: number;
+  y: number;
+};
+
 export type DesktopSettings = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   launchAtLogin: boolean;
   optimizeClipboardOnShortcut: boolean;
   shortcut: string;
+  alwaysOnTop: boolean;
+  windowPosition: WindowPosition | null;
 };
 
 export type DesktopPlatform = "darwin" | "win32" | "other";
@@ -37,6 +44,7 @@ export type SettingsUpdate = {
   launchAtLogin?: boolean;
   optimizeClipboardOnShortcut?: boolean;
   shortcut?: string;
+  alwaysOnTop?: boolean;
 };
 
 export type SettingsSnapshot = {

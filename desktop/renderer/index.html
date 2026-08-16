@@ -13,6 +13,17 @@
   <body>
     <main class="compact-shell">
       <section class="prompt-box" aria-label="提示词优化输入框">
+        <div class="window-drag-rail" aria-hidden="true"></div>
+        <button
+          class="pin-button"
+          id="pin-button"
+          type="button"
+          aria-label="取消窗口置顶"
+          aria-pressed="true"
+          title="取消窗口置顶"
+        >
+          <span class="icon icon--pin" aria-hidden="true"></span>
+        </button>
         <label class="sr-only" for="editor">需要优化的提示词</label>
         <textarea
           id="editor"
@@ -36,24 +47,22 @@
           title="优化输入内容（⌘/Ctrl+Enter）"
           disabled
         >
-          <svg class="action-icon action-icon--optimize" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 2 14 9l7 2-7 2-2 7-2-7-7-2 7-2 2-7Z" />
-            <path d="m19 3 .7 2.3L22 6l-2.3.7L19 9l-.7-2.3L16 6l2.3-.7L19 3Z" />
-          </svg>
-          <svg class="action-icon action-icon--undo" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="m9 7-5 5 5 5" />
-            <path d="M5 12h8a6 6 0 0 1 6 6" />
-          </svg>
+          <span
+            class="icon action-icon action-icon--optimize icon--sparkles"
+            aria-hidden="true"
+          ></span>
+          <span
+            class="icon action-icon action-icon--undo icon--undo"
+            aria-hidden="true"
+          ></span>
         </button>
       </section>
 
       <section class="settings-panel" id="settings-panel" aria-labelledby="settings-title" hidden>
-        <div class="settings-heading">
+        <div class="settings-heading window-drag-heading">
           <h2 id="settings-title">设置</h2>
           <button class="close-button" id="settings-close" type="button" aria-label="关闭设置">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="m6 6 12 12M18 6 6 18" />
-            </svg>
+            <span class="icon icon--close" aria-hidden="true"></span>
           </button>
         </div>
 

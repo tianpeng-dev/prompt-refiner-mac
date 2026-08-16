@@ -19,14 +19,18 @@ import type { OptimizeResponse } from "../src/types.js";
 import { validateInput } from "../src/validation.js";
 import {
   calculateWindowPosition,
+  constrainWindowPosition,
   createClipboardController,
   DEFAULT_SETTINGS,
   desktopPlatform,
   formatShortcut,
   loginItemSettings,
   normalizeSettings,
+  selectDisplayForBounds,
+  shouldHideWindowOnBlur,
   shouldShowWindowAtStartup,
   trayIconName,
+  validateSettingsUpdate,
   validateShortcut,
 } from "./logic.js";
 import {
@@ -41,7 +45,7 @@ import {
   type SettingsUpdate,
 } from "./types.js";
 
-const WINDOW_SIZE = { width: 440, height: 240 };
+const WINDOW_SIZE = { width: 460, height: 176 };
 const SETTINGS_FILE = "settings.json";
 const TRAE_TOKEN_FILE = "trae-token.enc";
 const PLATFORM = desktopPlatform(process.platform);
@@ -55,6 +59,9 @@ let settings = { ...DEFAULT_SETTINGS };
 let settingsPath = "";
 let registeredShortcut: string | null = null;
 let shortcutError: string | null = null;
+let moveSettledTimer: ReturnType<typeof setTimeout> | null = null;
+let programmaticMoveTimer: ReturnType<typeof setTimeout> | null = null;
+let programmaticPosition: { x: number; y: number } | null = null;
 let optimizePrompt:
   | ((input: unknown, token: string) => Promise<OptimizeResponse>)
   | null = null;
@@ -132,7 +139,7 @@ function sendRendererEvent(channel: string, payload?: unknown): void {
   }
 }
 
-function windowPosition(): { x: number; y: number } {
+function trayWindowPosition(): { x: number; y: number } {
   if (!tray) return { x: 24, y: 48 };
   const trayBounds = tray.getBounds();
   const display = screen.getDisplayNearestPoint({
@@ -142,9 +149,113 @@ function windowPosition(): { x: number; y: number } {
   return calculateWindowPosition(trayBounds, display.workArea, WINDOW_SIZE);
 }
 
+function constrainedPosition(bounds: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}): { x: number; y: number } {
+  const displays = screen.getAllDisplays().map((display) => ({
+    id: display.id,
+    workArea: display.workArea,
+  }));
+  const selected = selectDisplayForBounds(
+    bounds,
+    displays,
+    screen.getPrimaryDisplay().id,
+  );
+  return selected
+    ? constrainWindowPosition(bounds, selected.workArea)
+    : { x: Math.round(bounds.x), y: Math.round(bounds.y) };
+}
+
+function resolvedWindowPosition(): { x: number; y: number } {
+  if (!settings.windowPosition) return trayWindowPosition();
+  return constrainedPosition({ ...settings.windowPosition, ...WINDOW_SIZE });
+}
+
+async function persistWindowPosition(position: { x: number; y: number }) {
+  const normalized = { x: Math.round(position.x), y: Math.round(position.y) };
+  if (
+    settings.windowPosition?.x === normalized.x &&
+    settings.windowPosition.y === normalized.y
+  ) {
+    return;
+  }
+  const previous = settings;
+  const next = { ...settings, windowPosition: normalized };
+  settings = next;
+  try {
+    await saveSettings(next);
+  } catch {
+    if (settings === next) settings = previous;
+    sendRendererEvent(RENDERER_EVENTS.operationError, "窗口位置未保存。");
+  }
+}
+
+function setMainWindowPosition(position: { x: number; y: number }): void {
+  const window = mainWindow;
+  if (!window || window.isDestroyed()) return;
+  programmaticPosition = { ...position };
+  if (programmaticMoveTimer !== null) clearTimeout(programmaticMoveTimer);
+  window.setPosition(position.x, position.y, false);
+  programmaticMoveTimer = setTimeout(() => {
+    programmaticMoveTimer = null;
+    programmaticPosition = null;
+  }, 250);
+}
+
+async function settleWindowPosition(): Promise<void> {
+  const window = mainWindow;
+  if (!window || window.isDestroyed()) return;
+  const bounds = window.getBounds();
+  const position = constrainedPosition(bounds);
+  if (position.x !== bounds.x || position.y !== bounds.y) {
+    setMainWindowPosition(position);
+  }
+  await persistWindowPosition(position);
+}
+
+function scheduleWindowSettle(): void {
+  if (moveSettledTimer !== null) clearTimeout(moveSettledTimer);
+  moveSettledTimer = setTimeout(() => {
+    moveSettledTimer = null;
+    void settleWindowPosition();
+  }, PLATFORM === "darwin" ? 120 : 0);
+}
+
+function handleWindowMove(): void {
+  const window = mainWindow;
+  if (!window || window.isDestroyed()) return;
+  const [x, y] = window.getPosition();
+  if (programmaticPosition?.x === x && programmaticPosition.y === y) {
+    programmaticPosition = null;
+    if (programmaticMoveTimer !== null) clearTimeout(programmaticMoveTimer);
+    programmaticMoveTimer = null;
+    return;
+  }
+  programmaticPosition = null;
+  if (programmaticMoveTimer !== null) clearTimeout(programmaticMoveTimer);
+  programmaticMoveTimer = null;
+  scheduleWindowSettle();
+}
+
+function ensureSavedWindowIsVisible(): void {
+  const window = mainWindow;
+  if (!window || window.isDestroyed() || !settings.windowPosition) return;
+  const position = constrainedPosition({
+    ...settings.windowPosition,
+    ...WINDOW_SIZE,
+  });
+  setMainWindowPosition(position);
+  void persistWindowPosition(position);
+}
+
 function showWindow(blank = false): void {
   if (!mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.setPosition(windowPosition().x, windowPosition().y, false);
+  const position = resolvedWindowPosition();
+  setMainWindowPosition(position);
+  if (settings.windowPosition) void persistWindowPosition(position);
   mainWindow.show();
   mainWindow.focus();
   if (blank) sendRendererEvent(RENDERER_EVENTS.blankRequested);
@@ -194,7 +305,12 @@ async function updateSettings(update: SettingsUpdate): Promise<SettingsSnapshot>
   if (typeof update.optimizeClipboardOnShortcut === "boolean") {
     next.optimizeClipboardOnShortcut = update.optimizeClipboardOnShortcut;
   }
+  if (typeof update.alwaysOnTop === "boolean") {
+    next.alwaysOnTop = update.alwaysOnTop;
+  }
 
+  let newlyRegisteredShortcut: string | null = null;
+  const previousRegisteredShortcut = registeredShortcut;
   if (update.shortcut !== undefined) {
     const candidate = validateShortcut(update.shortcut);
     if (candidate !== registeredShortcut) {
@@ -202,16 +318,29 @@ async function updateSettings(update: SettingsUpdate): Promise<SettingsSnapshot>
         shortcutError = `${formatShortcut(candidate, PLATFORM)} 已被其他应用占用，原快捷键仍然有效。`;
         return settingsSnapshot();
       }
-      if (registeredShortcut) globalShortcut.unregister(registeredShortcut);
-      registeredShortcut = candidate;
+      newlyRegisteredShortcut = candidate;
     }
     next.shortcut = candidate;
-    shortcutError = null;
   }
 
+  try {
+    await saveSettings(next);
+  } catch (error) {
+    if (newlyRegisteredShortcut) {
+      globalShortcut.unregister(newlyRegisteredShortcut);
+    }
+    throw error;
+  }
+  if (newlyRegisteredShortcut) {
+    if (previousRegisteredShortcut) {
+      globalShortcut.unregister(previousRegisteredShortcut);
+    }
+    registeredShortcut = newlyRegisteredShortcut;
+  }
   settings = next;
-  await saveSettings(settings);
+  shortcutError = null;
   applyLoginItem();
+  mainWindow?.setAlwaysOnTop(settings.alwaysOnTop);
   rebuildTrayMenu();
   const snapshot = settingsSnapshot();
   sendRendererEvent(RENDERER_EVENTS.settingsChanged, snapshot);
@@ -357,11 +486,11 @@ async function createWindow(): Promise<void> {
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
-    movable: false,
-    alwaysOnTop: true,
+    movable: true,
+    alwaysOnTop: settings.alwaysOnTop,
     skipTaskbar: true,
     hasShadow: true,
-    backgroundColor: "#1D1E21",
+    backgroundColor: "#202125",
     webPreferences: {
       preload: path.join(appRoot, "desktop", "preload.cjs"),
       contextIsolation: true,
@@ -374,8 +503,16 @@ async function createWindow(): Promise<void> {
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   mainWindow.webContents.on("will-navigate", (event) => event.preventDefault());
   mainWindow.on("blur", () => {
-    if (!mainWindow?.webContents.isDevToolsOpened()) mainWindow?.hide();
+    const devToolsOpen = mainWindow?.webContents.isDevToolsOpened() ?? false;
+    if (shouldHideWindowOnBlur(settings.alwaysOnTop, devToolsOpen)) {
+      mainWindow?.hide();
+    }
   });
+  if (PLATFORM === "darwin") {
+    mainWindow.on("move", handleWindowMove);
+  } else {
+    mainWindow.on("moved", handleWindowMove);
+  }
   mainWindow.on("close", (event) => {
     if (!quitting) {
       event.preventDefault();
@@ -422,23 +559,7 @@ function setupIpc(): void {
   });
   ipcMain.handle(IPC_CHANNELS.settingsGet, () => settingsSnapshot());
   ipcMain.handle(IPC_CHANNELS.settingsUpdate, (_event, value: unknown) => {
-    if (typeof value !== "object" || value === null || Array.isArray(value)) {
-      throw new TypeError("设置内容无效。");
-    }
-    const update = value as SettingsUpdate;
-    if (
-      update.launchAtLogin !== undefined &&
-      typeof update.launchAtLogin !== "boolean"
-    ) {
-      throw new TypeError("登录启动设置无效。");
-    }
-    if (
-      update.optimizeClipboardOnShortcut !== undefined &&
-      typeof update.optimizeClipboardOnShortcut !== "boolean"
-    ) {
-      throw new TypeError("快捷键自动优化设置无效。");
-    }
-    return updateSettings(update);
+    return updateSettings(validateSettingsUpdate(value));
   });
   ipcMain.handle(IPC_CHANNELS.windowHide, () => mainWindow?.hide());
 }
@@ -480,6 +601,8 @@ async function initialize(): Promise<void> {
   setupIpc();
   await createWindow();
   createTray();
+  screen.on("display-removed", ensureSavedWindowIsVisible);
+  screen.on("display-metrics-changed", ensureSavedWindowIsVisible);
   registerShortcut(settings.shortcut);
   applyLoginItem();
   rebuildTrayMenu();

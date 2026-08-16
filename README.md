@@ -8,6 +8,8 @@
 
 - **极简托盘界面**：左键系统图标打开输入框，右键打开功能菜单。
 - **原位优化与撤销**：优化结果直接替换输入内容，并保留一次内存撤销。
+- **自由拖动与位置恢复**：可拖动顶部细栏或窗口外边缘，窗口会吸附屏幕边界并记住最终位置。
+- **窗口置顶切换**：通过右上角图钉控制置顶；置顶时切换其他应用仍保持显示。
 - **剪贴板优化**：可从右键菜单直接优化剪贴板，成功后覆盖原内容，失败时不修改。
 - **全局快捷键**：macOS 默认使用 `⌥⌘P`，Windows 默认使用 `Ctrl+Alt+P`。
 - **快捷键自动优化**：可在设置中开启；按下全局快捷键后自动读取剪贴板、开始优化并用结果覆盖剪贴板，撤销时恢复原内容。
@@ -30,13 +32,13 @@
 
 ### macOS
 
-1. 下载 macOS arm64 压缩包，解压后将“精炼台.app”移动到 `/Applications`。
+1. 下载 `JingLianTai-1.3.0-mac-arm64.zip`，解压后将“精炼台.app”移动到 `/Applications`。
 2. 当前版本未进行 Apple 签名和公证。首次启动若被 macOS 拦截，请右键点击应用并选择“打开”。
 3. 点击顶部菜单栏的闪光图标开始使用。
 
 ### Windows
 
-1. 下载 `JingLianTai-1.2.0-win-x64.exe` 并运行安装程序。
+1. 下载 `JingLianTai-1.3.0-win-x64.exe` 并运行安装程序。
 2. 当前版本未进行 Windows 代码签名，Microsoft Defender SmartScreen 可能提示“Windows 已保护你的电脑”；确认来源后选择“更多信息”再运行。
 3. 安装完成后，从开始菜单打开精炼台，应用会驻留在任务栏通知区域。
 
@@ -94,7 +96,8 @@ pnpm pack:win
 
 ```text
 release/mac-arm64/精炼台.app
-release/JingLianTai-1.2.0-win-x64.exe
+release/JingLianTai-1.3.0-mac-arm64.zip
+release/JingLianTai-1.3.0-win-x64.exe
 ```
 
 ## 技术说明与限制
