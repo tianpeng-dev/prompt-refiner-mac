@@ -10,6 +10,7 @@
 - **原位优化与撤销**：优化结果直接替换输入内容，并保留一次内存撤销。
 - **剪贴板优化**：可从右键菜单直接优化剪贴板，成功后覆盖原内容，失败时不修改。
 - **全局快捷键**：macOS 默认使用 `⌥⌘P`，Windows 默认使用 `Ctrl+Alt+P`。
+- **快捷键自动优化**：可在设置中开启；按下全局快捷键后自动读取剪贴板、开始优化并用结果覆盖剪贴板，撤销时恢复原内容。
 - **登录时启动**：可在右键菜单中开启或关闭。
 - **无模型回退**：只调用 Trae `input_optimization / no_thinking_model`，不会转用 GPT、Codex CLI 或其他模型。
 - **本地隐私保护**：不保存提示词和优化历史；登录令牌由系统 `safeStorage` 加密保存。
@@ -35,7 +36,7 @@
 
 ### Windows
 
-1. 下载 `JingLianTai-1.1.0-win-x64.exe` 并运行安装程序。
+1. 下载 `JingLianTai-1.2.0-win-x64.exe` 并运行安装程序。
 2. 当前版本未进行 Windows 代码签名，Microsoft Defender SmartScreen 可能提示“Windows 已保护你的电脑”；确认来源后选择“更多信息”再运行。
 3. 安装完成后，从开始菜单打开精炼台，应用会驻留在任务栏通知区域。
 
@@ -93,13 +94,15 @@ pnpm pack:win
 
 ```text
 release/mac-arm64/精炼台.app
-release/JingLianTai-1.1.0-win-x64.exe
+release/JingLianTai-1.2.0-win-x64.exe
 ```
 
 ## 技术说明与限制
 
 - Electron 43 + TypeScript。
 - 提供 macOS 菜单栏和 Windows 系统托盘应用，不包含 Web 服务或 HTTP API。
+- 优化请求按 Trae CN 3.3.88 的原生流程构造：使用其默认输入优化模板，并以 `user_input / placeholder_map` 结构提交原文；应用不会创建 `⟦PROTECTED_*⟧` 内部占位符。
+- `no_thinking_model` 采用随机生成；即使请求参数一致，同一输入在 TraeCode 和精炼台中也可能得到措辞、长度和结构不同但语义相近的结果，不保证逐字一致。
 - Trae 的优化接口属于未公开的内部接口，Trae 修改登录流程、端点或协议后，应用可能需要同步更新。
 - 每次优化可能消耗 Trae Credits。
 - 当前 macOS 构建未签名、未公证，Windows 构建未进行代码签名；两者都不支持自动更新。

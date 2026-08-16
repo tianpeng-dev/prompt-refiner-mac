@@ -37,6 +37,28 @@ describe("compact menu-bar UI", () => {
     expect(renderer).toContain('editor.addEventListener("input", handleEditorInput)');
   });
 
+  it("can optimize and replace clipboard text when the global shortcut setting is enabled", async () => {
+    const [source, preload, html, renderer] = await Promise.all([
+      readFile(path.join(PROJECT_ROOT, "desktop", "main.ts"), "utf8"),
+      readFile(path.join(PROJECT_ROOT, "desktop", "preload.cjs"), "utf8"),
+      readFile(path.join(PROJECT_ROOT, "desktop", "renderer", "index.html"), "utf8"),
+      readFile(path.join(PROJECT_ROOT, "desktop", "renderer", "app.js"), "utf8"),
+    ]);
+    expect(html).toContain('id="shortcut-clipboard-toggle"');
+    expect(source).toContain("settings.optimizeClipboardOnShortcut");
+    expect(source).toContain("validateInput(clipboard.readText())");
+    expect(source).toContain("RENDERER_EVENTS.shortcutOptimizeRequested");
+    expect(preload).toContain("onShortcutOptimizeRequested");
+    const shortcutHandler = renderer.slice(
+      renderer.indexOf("bridge.window.onShortcutOptimizeRequested"),
+      renderer.indexOf("bridge.window.onAuthStatus"),
+    );
+    expect(shortcutHandler).toContain("void optimizeEditor(true)");
+    expect(renderer).toContain("await bridge.clipboard.write(response.optimized)");
+    expect(renderer).toContain('previous.kind === "shortcut-clipboard"');
+    expect(renderer).toContain("await bridge.clipboard.write(previous.text)");
+  });
+
   it("places the caret at the end of an optimized result", async () => {
     const renderer = await readFile(
       path.join(PROJECT_ROOT, "desktop", "renderer", "app.js"),

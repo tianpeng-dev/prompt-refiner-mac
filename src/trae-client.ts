@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 
 const TRAE_API_BASE = "https://trae-api-cn.mchost.guru";
 const TRAE_APP_ID = "6eefa01c-1036-4c7e-9ca5-d891f63bfcd8";
-const TRAE_VERSION = "3.3.87";
-const TRAE_VERSION_CODE = "20260806";
+const TRAE_VERSION = "3.3.88";
+const TRAE_VERSION_CODE = "20260212";
 
 export const TRAE_TIMEOUT_MS = 50_000;
 
@@ -141,9 +141,13 @@ export function parseTraeSse(body: string): TraeSseResult {
   return { optimizedPrompt, tokenUsage };
 }
 
+export function createTraeOptimizationInput(input: string): string {
+  return JSON.stringify({ user_input: input, placeholder_map: "{}" });
+}
+
 export async function optimizeWithTrae(
   token: string,
-  systemPrompt: string,
+  officialPrompt: string,
   input: string,
   fetchImpl: FetchLike = fetch,
 ): Promise<TraeResult> {
@@ -162,11 +166,13 @@ export async function optimizeWithTrae(
         messages: [
           {
             role: "system",
-            content: [{ type: "text", text: systemPrompt }],
+            content: [{ type: "text", text: officialPrompt }],
           },
           {
             role: "user",
-            content: [{ type: "text", text: input }],
+            content: [
+              { type: "text", text: createTraeOptimizationInput(input) },
+            ],
           },
         ],
       }),

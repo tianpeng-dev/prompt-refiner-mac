@@ -207,7 +207,6 @@ textarea[readonly] {
   color: var(--teal);
 }
 
-.toast[data-tone="warning"],
 .toast[data-tone="error"] {
   color: var(--coral);
 }
@@ -262,7 +261,7 @@ textarea[readonly] {
 }
 
 .setting-row {
-  min-height: 58px;
+  min-height: 46px;
   gap: 14px;
   border-top: 1px solid var(--line);
 }

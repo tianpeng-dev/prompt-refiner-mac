@@ -20,11 +20,9 @@ function response(optimized: string): OptimizeResponse {
       inputChars: 4,
       outputChars: optimized.length,
       expansionRatio: 2,
-      preservedItems: [],
       durationMs: 20,
       tokenUsage: null,
     },
-    warnings: [],
     traceId: "trace",
   };
 }
@@ -35,16 +33,28 @@ describe("desktop settings", () => {
       normalizeSettings({
         schemaVersion: 1,
         launchAtLogin: false,
+        optimizeClipboardOnShortcut: true,
         shortcut: "Option+Command+K",
       }),
     ).toEqual({
       schemaVersion: 1,
       launchAtLogin: false,
+      optimizeClipboardOnShortcut: true,
       shortcut: "CommandOrControl+Alt+K",
     });
     expect(() => validateShortcut("Option+P")).toThrow("Command 或 Ctrl");
     expect(() => validateShortcut("Command+P")).toThrow("再加入");
     expect(() => validateShortcut("Command+Alt+PageDown")).toThrow("字母");
+  });
+
+  it("migrates existing settings with shortcut clipboard optimization disabled", () => {
+    expect(
+      normalizeSettings({
+        schemaVersion: 1,
+        launchAtLogin: false,
+        shortcut: "Command+Option+K",
+      }).optimizeClipboardOnShortcut,
+    ).toBe(false);
   });
 
   it("falls back when the persisted schema or shortcut is invalid", () => {
