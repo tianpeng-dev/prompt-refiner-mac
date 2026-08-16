@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  createTraeOptimizationInput,
   optimizeWithTrae,
   parseTraeSse,
   TRAE_TIMEOUT_MS,
@@ -46,9 +47,18 @@ describe("Trae direct transport", () => {
       });
       expect(body.messages[1]).toEqual({
         role: "user",
-        content: [{ type: "text", text: "input" }],
+        content: [
+          {
+            type: "text",
+            text: '{"user_input":"input","placeholder_map":"{}"}',
+          },
+        ],
       });
-      expect(new Headers(init?.headers).get("x-ide-token")).toBe("secret-token");
+      const headers = new Headers(init?.headers);
+      expect(headers.get("x-ide-token")).toBe("secret-token");
+      expect(headers.get("x-ide-version")).toBe("3.3.88");
+      expect(headers.get("x-ide-version-code")).toBe("20260212");
+      expect(headers.get("x-app-version-code")).toBe("20260212");
       return new Response(successSse, {
         status: 200,
         headers: { "content-type": "text/event-stream" },
@@ -63,6 +73,14 @@ describe("Trae direct transport", () => {
     );
     expect(result.optimizedPrompt).toBe("优化后的提示词");
     expect(result.tokenUsage).toBe(123);
+  });
+
+  it("passes the original text to Trae without internal protection markers", () => {
+    const input = "检查 src/auth.ts 和原文 ⟦PROTECTED_000⟧";
+    expect(JSON.parse(createTraeOptimizationInput(input))).toEqual({
+      user_input: input,
+      placeholder_map: "{}",
+    });
   });
 
   it("maps SSE protocol errors to a safe message", () => {

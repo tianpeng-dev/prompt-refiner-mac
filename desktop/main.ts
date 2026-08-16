@@ -160,8 +160,23 @@ function toggleWindow(): void {
   }
 }
 
+function handleGlobalShortcut(): void {
+  if (!settings.optimizeClipboardOnShortcut) {
+    showWindow(true);
+    return;
+  }
+
+  showWindow();
+  try {
+    const input = validateInput(clipboard.readText());
+    sendRendererEvent(RENDERER_EVENTS.shortcutOptimizeRequested, input);
+  } catch (error) {
+    sendRendererEvent(RENDERER_EVENTS.operationError, userMessage(error));
+  }
+}
+
 function registerShortcut(shortcut: string): boolean {
-  const registered = globalShortcut.register(shortcut, () => showWindow(true));
+  const registered = globalShortcut.register(shortcut, handleGlobalShortcut);
   if (registered) {
     registeredShortcut = shortcut;
     shortcutError = null;
@@ -176,11 +191,14 @@ async function updateSettings(update: SettingsUpdate): Promise<SettingsSnapshot>
   if (typeof update.launchAtLogin === "boolean") {
     next.launchAtLogin = update.launchAtLogin;
   }
+  if (typeof update.optimizeClipboardOnShortcut === "boolean") {
+    next.optimizeClipboardOnShortcut = update.optimizeClipboardOnShortcut;
+  }
 
   if (update.shortcut !== undefined) {
     const candidate = validateShortcut(update.shortcut);
     if (candidate !== registeredShortcut) {
-      if (!globalShortcut.register(candidate, () => showWindow(true))) {
+      if (!globalShortcut.register(candidate, handleGlobalShortcut)) {
         shortcutError = `${formatShortcut(candidate, PLATFORM)} 已被其他应用占用，原快捷键仍然有效。`;
         return settingsSnapshot();
       }
@@ -300,7 +318,7 @@ function rebuildTrayMenu(): void {
       },
     },
     {
-      label: `快捷键设置…  ${formatShortcut(settings.shortcut, PLATFORM)}`,
+      label: `设置…  ${formatShortcut(settings.shortcut, PLATFORM)}`,
       click: () => {
         showWindow();
         sendRendererEvent(RENDERER_EVENTS.openSettings);
@@ -413,6 +431,12 @@ function setupIpc(): void {
       typeof update.launchAtLogin !== "boolean"
     ) {
       throw new TypeError("登录启动设置无效。");
+    }
+    if (
+      update.optimizeClipboardOnShortcut !== undefined &&
+      typeof update.optimizeClipboardOnShortcut !== "boolean"
+    ) {
+      throw new TypeError("快捷键自动优化设置无效。");
     }
     return updateSettings(update);
   });

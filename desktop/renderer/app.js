@@ -8,6 +8,7 @@ const status = document.querySelector("#status");
 const settingsPanel = document.querySelector("#settings-panel");
 const settingsClose = document.querySelector("#settings-close");
 const launchToggle = document.querySelector("#launch-toggle");
+const shortcutClipboardToggle = document.querySelector("#shortcut-clipboard-toggle");
 const shortcutRecorder = document.querySelector("#shortcut-recorder");
 const shortcutLabel = document.querySelector("#shortcut-label");
 const settingsStatus = document.querySelector("#settings-status");
@@ -102,18 +103,14 @@ function applyOptimization(source, response, undoKind) {
   state.undo = { kind: undoKind, text: source };
   setEditorValue(response.optimized);
   setMode("undo");
-  if (response.warnings.length) {
-    showToast(response.warnings.join(" "), "warning", true);
-  } else {
-    showToast("优化完成", "ready");
-  }
+  showToast("优化完成", "ready");
   editor.focus();
   const end = editor.value.length;
   editor.setSelectionRange(end, end);
   editor.scrollTop = editor.scrollHeight;
 }
 
-async function optimizeEditor() {
+async function optimizeEditor(overwriteClipboard = false) {
   const source = editor.value.trim();
   if (!source || state.busy || state.refreshing) return;
   state.busy = true;
@@ -122,7 +119,15 @@ async function optimizeEditor() {
   startRefreshAnimation(source);
   try {
     const response = await bridge.optimizer.optimize(source);
-    applyOptimization(source, response, "editor");
+    if (overwriteClipboard) await bridge.clipboard.write(response.optimized);
+    applyOptimization(
+      source,
+      response,
+      overwriteClipboard ? "shortcut-clipboard" : "editor",
+    );
+    if (overwriteClipboard) {
+      showToast("优化完成，已更新剪贴板", "ready");
+    }
   } catch (error) {
     showToast(errorMessage(error), "error", true);
   } finally {
@@ -137,6 +142,9 @@ async function undoOptimization() {
   const previous = state.undo;
   try {
     if (previous.kind === "clipboard") await bridge.clipboard.undo();
+    if (previous.kind === "shortcut-clipboard") {
+      await bridge.clipboard.write(previous.text);
+    }
     state.undo = null;
     setEditorValue(previous.text);
     setMode("optimize");
@@ -178,6 +186,7 @@ function renderSettings(snapshot) {
   state.platform = snapshot.platform;
   state.settings = snapshot.settings;
   launchToggle.checked = snapshot.settings.launchAtLogin;
+  shortcutClipboardToggle.checked = snapshot.settings.optimizeClipboardOnShortcut;
   shortcutLabel.textContent = formatShortcut(snapshot.settings.shortcut);
   shortcutRecorder.classList.toggle("shortcut-recorder--error", !snapshot.shortcutRegistered);
   settingsStatus.textContent = snapshot.shortcutError ?? "";
@@ -281,6 +290,23 @@ launchToggle.addEventListener("change", async () => {
     launchToggle.disabled = false;
   }
 });
+shortcutClipboardToggle.addEventListener("change", async () => {
+  shortcutClipboardToggle.disabled = true;
+  try {
+    renderSettings(
+      await bridge.settings.update({
+        optimizeClipboardOnShortcut: shortcutClipboardToggle.checked,
+      }),
+    );
+  } catch (error) {
+    shortcutClipboardToggle.checked =
+      state.settings?.optimizeClipboardOnShortcut ?? false;
+    settingsStatus.textContent = errorMessage(error);
+    settingsStatus.dataset.tone = "error";
+  } finally {
+    shortcutClipboardToggle.disabled = false;
+  }
+});
 
 window.addEventListener("keydown", (event) => {
   if (state.capturingShortcut) {
@@ -356,6 +382,19 @@ async function boot() {
   });
   bridge.window.onOpenSettings(openSettings);
   bridge.window.onSettingsChanged(renderSettings);
+  bridge.window.onShortcutOptimizeRequested((input) => {
+    if (state.busy || state.refreshing) {
+      showToast("正在处理另一项优化，请稍候。", "error", true);
+      return;
+    }
+    if (state.settingsOpen) closeSettings();
+    state.undo = null;
+    setMode("optimize");
+    setEditorValue(input);
+    status.hidden = true;
+    editor.focus();
+    void optimizeEditor(true);
+  });
   bridge.window.onAuthStatus((value) => {
     if (!value?.message) return;
     showToast(value.message, value.tone ?? "neutral", value.persistent ?? false);

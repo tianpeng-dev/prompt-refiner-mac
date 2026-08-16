@@ -10,6 +10,7 @@ import type {
 export const DEFAULT_SETTINGS: DesktopSettings = {
   schemaVersion: 1,
   launchAtLogin: true,
+  optimizeClipboardOnShortcut: false,
   shortcut: "CommandOrControl+Alt+P",
 };
 
@@ -36,6 +37,10 @@ export function normalizeSettings(value: unknown): DesktopSettings {
       typeof value.launchAtLogin === "boolean"
         ? value.launchAtLogin
         : DEFAULT_SETTINGS.launchAtLogin,
+    optimizeClipboardOnShortcut:
+      typeof value.optimizeClipboardOnShortcut === "boolean"
+        ? value.optimizeClipboardOnShortcut
+        : DEFAULT_SETTINGS.optimizeClipboardOnShortcut,
     shortcut,
   };
 }

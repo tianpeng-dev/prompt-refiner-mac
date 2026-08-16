@@ -18,6 +18,7 @@ const events = {
   clipboardRestored: "clipboard:restored",
   openSettings: "settings:open",
   settingsChanged: "settings:changed",
+  shortcutOptimizeRequested: "shortcut:optimize-requested",
   authStatus: "auth:status",
   operationError: "operation:error",
 };
@@ -53,6 +54,8 @@ contextBridge.exposeInMainWorld("refiner", {
     onOpenSettings: (callback) => subscribe(events.openSettings, callback),
     onSettingsChanged: (callback) =>
       subscribe(events.settingsChanged, callback),
+    onShortcutOptimizeRequested: (callback) =>
+      subscribe(events.shortcutOptimizeRequested, callback),
     onAuthStatus: (callback) => subscribe(events.authStatus, callback),
     onOperationError: (callback) =>
       subscribe(events.operationError, callback),

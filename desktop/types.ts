@@ -19,6 +19,7 @@ export const RENDERER_EVENTS = {
   clipboardRestored: "clipboard:restored",
   openSettings: "settings:open",
   settingsChanged: "settings:changed",
+  shortcutOptimizeRequested: "shortcut:optimize-requested",
   authStatus: "auth:status",
   operationError: "operation:error",
 } as const;
@@ -26,6 +27,7 @@ export const RENDERER_EVENTS = {
 export type DesktopSettings = {
   schemaVersion: 1;
   launchAtLogin: boolean;
+  optimizeClipboardOnShortcut: boolean;
   shortcut: string;
 };
 
@@ -33,6 +35,7 @@ export type DesktopPlatform = "darwin" | "win32" | "other";
 
 export type SettingsUpdate = {
   launchAtLogin?: boolean;
+  optimizeClipboardOnShortcut?: boolean;
   shortcut?: string;
 };
 
