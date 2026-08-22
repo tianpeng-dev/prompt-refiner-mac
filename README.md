@@ -32,13 +32,13 @@
 
 ### macOS
 
-1. 下载 `JingLianTai-1.3.1-mac-arm64.zip`，解压后将“精炼台.app”移动到 `/Applications`。
+1. 下载 `JingLianTai-1.3.2-mac-arm64.zip`，解压后将“精炼台.app”移动到 `/Applications`。
 2. 当前安装包采用完整临时签名，但未进行 Apple 公证。首次安装后在“终端”执行：`xattr -cr "/Applications/精炼台.app"`。
 3. 双击打开精炼台，再点击顶部菜单栏的闪光图标开始使用。
 
 ### Windows
 
-1. 下载 `JingLianTai-1.3.1-win-x64.exe` 并运行安装程序。
+1. 下载 `JingLianTai-1.3.2-win-x64.exe` 并运行安装程序。
 2. 当前版本未进行 Windows 代码签名，Microsoft Defender SmartScreen 可能提示“Windows 已保护你的电脑”；确认来源后选择“更多信息”再运行。
 3. 安装完成后，从开始菜单打开精炼台，应用会驻留在任务栏通知区域。
 
@@ -52,7 +52,7 @@
 
 1. 左键点击系统图标；也可以在 macOS 按下 `⌥⌘P`，或在 Windows 按下 `Ctrl+Alt+P`。
 2. 输入需要优化的提示词。
-3. 点击右下角闪光图标；也可以在 macOS 按 `⌘↩`，或在 Windows 按 `Ctrl+Enter`。
+3. 点击右下角闪光图标，或按 `Enter`；需要换行时使用 `Shift+Enter`。
 4. 优化完成后，闪光图标会变成撤销图标。
 
 ### 右键菜单
@@ -96,8 +96,8 @@ pnpm pack:win
 
 ```text
 release/mac-arm64/精炼台.app
-release/JingLianTai-1.3.1-mac-arm64.zip
-release/JingLianTai-1.3.1-win-x64.exe
+release/JingLianTai-1.3.2-mac-arm64.zip
+release/JingLianTai-1.3.2-win-x64.exe
 ```
 
 ## 技术说明与限制

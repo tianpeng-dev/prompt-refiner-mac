@@ -117,6 +117,27 @@ describe("compact menu-bar UI", () => {
     expect(renderer).toContain('editor.addEventListener("input", handleEditorInput)');
   });
 
+  it("submits optimization with Enter and keeps Shift Enter for new lines", async () => {
+    const renderer = await readFile(
+      path.join(PROJECT_ROOT, "desktop", "renderer", "app.js"),
+      "utf8",
+    );
+    const keyHandler = renderer.slice(
+      renderer.indexOf('window.addEventListener("keydown"'),
+      renderer.indexOf("async function boot"),
+    );
+
+    expect(keyHandler).toContain("event.target === editor");
+    expect(keyHandler).toContain('event.key === "Enter"');
+    expect(keyHandler).toContain("!event.shiftKey");
+    expect(keyHandler).toContain("!event.isComposing");
+    expect(keyHandler).toContain(
+      'actionButton.dataset.mode === "optimize"',
+    );
+    expect(keyHandler).toContain("event.preventDefault()");
+    expect(keyHandler).toContain("void optimizeEditor()");
+  });
+
   it("can optimize and replace clipboard text when the global shortcut setting is enabled", async () => {
     const [source, preload, html, renderer] = await Promise.all([
       readFile(path.join(PROJECT_ROOT, "desktop", "main.ts"), "utf8"),

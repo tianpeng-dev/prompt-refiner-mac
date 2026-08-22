@@ -47,8 +47,7 @@ function setMode(mode) {
   actionButton.dataset.mode = mode;
   const undoMode = mode === "undo";
   actionButton.setAttribute("aria-label", undoMode ? "撤销优化" : "优化输入内容");
-  const submitShortcut = state.platform === "darwin" ? "⌘↩" : "Ctrl+Enter";
-  actionButton.title = undoMode ? "撤销优化" : `优化输入内容（${submitShortcut}）`;
+  actionButton.title = undoMode ? "撤销优化" : "优化输入内容（Enter）";
   updateControls();
 }
 
@@ -347,8 +346,10 @@ window.addEventListener("keydown", (event) => {
     return;
   }
   if (
-    (state.platform === "darwin" ? event.metaKey : event.ctrlKey) &&
+    event.target === editor &&
     event.key === "Enter" &&
+    !event.shiftKey &&
+    !event.isComposing &&
     !state.settingsOpen &&
     actionButton.dataset.mode === "optimize"
   ) {
