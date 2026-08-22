@@ -26,6 +26,33 @@ describe("compact menu-bar UI", () => {
     expect((460 * 176) / (480 * 680)).toBeLessThan(0.25);
   });
 
+  it("requires a complete ad-hoc signature for the macOS archive", async () => {
+    const [packageSource, verifier] = await Promise.all([
+      readFile(path.join(PROJECT_ROOT, "package.json"), "utf8"),
+      readFile(
+        path.join(PROJECT_ROOT, "scripts", "verify-mac-distribution.sh"),
+        "utf8",
+      ),
+    ]);
+    const packageJson = JSON.parse(packageSource);
+    const mac = packageJson.build.mac;
+
+    expect(mac.identity).toBe("-");
+    expect(mac.hardenedRuntime).toBe(false);
+    expect(mac.notarize).toBe(false);
+    expect(mac.target[0].target).toBe("zip");
+    expect(mac.artifactName).toBe(
+      "JingLianTai-${version}-mac-${arch}.${ext}",
+    );
+    expect(packageJson.scripts["pack:mac"]).toContain(
+      "verify-mac-distribution.sh",
+    );
+    expect(verifier).toContain("codesign --verify --deep --strict");
+    expect(verifier).toContain("Signature=adhoc");
+    expect(verifier).toContain("Sealed Resources version=2");
+    expect(verifier).toContain("ditto -x -k");
+  });
+
   it("provides native drag regions and an accessible pin toggle", async () => {
     const [html, styles, renderer, source] = await Promise.all([
       readFile(path.join(PROJECT_ROOT, "desktop", "renderer", "index.html"), "utf8"),

@@ -1,6 +1,6 @@
 {
   "name": "prompt-refiner-mvp",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "驻留在 macOS 菜单栏或 Windows 系统托盘的 Trae 提示词优化器",
   "author": "精炼台",
   "private": true,
@@ -17,7 +17,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "electron .",
     "icons": "bash scripts/build-icons.sh",
-    "pack:mac": "pnpm build && pnpm icons && electron-builder --mac dir --arm64",
+    "pack:mac": "pnpm build && pnpm icons && electron-builder --mac zip --arm64 && bash scripts/verify-mac-distribution.sh",
     "pack:win": "pnpm build && electron-builder --win nsis --x64",
     "test": "vitest run --dir tests",
     "test:watch": "vitest --dir tests"
@@ -65,7 +65,7 @@
     "mac": {
       "target": [
         {
-          "target": "dir",
+          "target": "zip",
           "arch": [
             "arm64"
           ]
@@ -73,7 +73,10 @@
       ],
       "category": "public.app-category.productivity",
       "icon": "assets/app-icon.icns",
-      "identity": null,
+      "artifactName": "JingLianTai-${version}-mac-${arch}.${ext}",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "notarize": false,
       "extendInfo": {
         "LSUIElement": true
       }
