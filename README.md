@@ -32,13 +32,13 @@
 
 ### macOS
 
-1. 下载 `JingLianTai-1.3.0-mac-arm64.zip`，解压后将“精炼台.app”移动到 `/Applications`。
-2. 当前版本未进行 Apple 签名和公证。首次启动若被 macOS 拦截，请右键点击应用并选择“打开”。
-3. 点击顶部菜单栏的闪光图标开始使用。
+1. 下载 `JingLianTai-1.3.1-mac-arm64.zip`，解压后将“精炼台.app”移动到 `/Applications`。
+2. 当前安装包采用完整临时签名，但未进行 Apple 公证。首次安装后在“终端”执行：`xattr -cr "/Applications/精炼台.app"`。
+3. 双击打开精炼台，再点击顶部菜单栏的闪光图标开始使用。
 
 ### Windows
 
-1. 下载 `JingLianTai-1.3.0-win-x64.exe` 并运行安装程序。
+1. 下载 `JingLianTai-1.3.1-win-x64.exe` 并运行安装程序。
 2. 当前版本未进行 Windows 代码签名，Microsoft Defender SmartScreen 可能提示“Windows 已保护你的电脑”；确认来源后选择“更多信息”再运行。
 3. 安装完成后，从开始菜单打开精炼台，应用会驻留在任务栏通知区域。
 
@@ -96,8 +96,8 @@ pnpm pack:win
 
 ```text
 release/mac-arm64/精炼台.app
-release/JingLianTai-1.3.0-mac-arm64.zip
-release/JingLianTai-1.3.0-win-x64.exe
+release/JingLianTai-1.3.1-mac-arm64.zip
+release/JingLianTai-1.3.1-win-x64.exe
 ```
 
 ## 技术说明与限制
@@ -108,5 +108,5 @@ release/JingLianTai-1.3.0-win-x64.exe
 - `no_thinking_model` 采用随机生成；即使请求参数一致，同一输入在 TraeCode 和精炼台中也可能得到措辞、长度和结构不同但语义相近的结果，不保证逐字一致。
 - Trae 的优化接口属于未公开的内部接口，Trae 修改登录流程、端点或协议后，应用可能需要同步更新。
 - 每次优化可能消耗 Trae Credits。
-- 当前 macOS 构建未签名、未公证，Windows 构建未进行代码签名；两者都不支持自动更新。
+- macOS 构建会对完整应用和最终 ZIP 执行临时签名校验，但未进行 Apple 公证，首次安装需要解除隔离；Windows 构建尚未进行代码签名。两者都不支持自动更新。
 - 本项目为独立工具，与 Trae 官方无隶属或授权关系。
